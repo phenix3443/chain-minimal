@@ -31,6 +31,8 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 
+	checkerskeeper "github.com/phenix3443/checkers/keeper"
+
 	_ "cosmossdk.io/api/cosmos/tx/config/v1"          // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/auth"           // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
@@ -39,6 +41,7 @@ import (
 	_ "github.com/cosmos/cosmos-sdk/x/distribution"   // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/mint"           // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/staking"        // import for side-effects
+	_ "github.com/phenix3443/checkers/module"         // import for side-effects
 )
 
 // DefaultNodeHome default home directories for the application daemon
@@ -68,6 +71,7 @@ type MiniApp struct {
 	StakingKeeper         *stakingkeeper.Keeper
 	DistrKeeper           distrkeeper.Keeper
 	ConsensusParamsKeeper consensuskeeper.Keeper
+	CheckersKeeper        checkerskeeper.Keeper
 
 	// simulation manager
 	sm *module.SimulationManager
@@ -102,6 +106,7 @@ func NewMiniApp(
 	traceStore io.Writer,
 	loadLatest bool,
 	appOpts servertypes.AppOptions,
+
 	baseAppOptions ...func(*baseapp.BaseApp),
 ) (*MiniApp, error) {
 	var (
@@ -127,6 +132,7 @@ func NewMiniApp(
 		&app.StakingKeeper,
 		&app.DistrKeeper,
 		&app.ConsensusParamsKeeper,
+		&app.CheckersKeeper,
 	); err != nil {
 		return nil, err
 	}
