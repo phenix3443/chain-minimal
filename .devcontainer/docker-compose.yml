@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+    networks:
+      - cosmos-dev
+    command: sleep infinity
+    environment:
+      - GOROOT=/usr/local/go
+      - GOPATH=/home/vscode/go
+      - PATH=/usr/local/go/bin:/home/vscode/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+networks:
+  cosmos-dev:
+    driver: bridge
