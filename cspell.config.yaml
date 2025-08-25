@@ -1,0 +1,15 @@
+version: "0.2"
+ignorePaths: []
+dictionaryDefinitions: []
+dictionaries: []
+words:
+  - Bech
+  - clienthelpers
+  - minid
+  - svrcmd
+  - valcons
+  - valconspub
+  - valoper
+  - valoperpub
+ignoreWords: []
+import: []

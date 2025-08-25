@@ -38,18 +38,8 @@
 ### 环境准备
 
 ```bash
-# 安装 Go 1.23+
-go version
-
-# 克隆仓库
 git clone https://github.com/cosmosregistry/chain-minimal.git
 cd chain-minimal
-
-# 安装依赖
-go mod download
-
-# 构建项目
-make install
 ```
 
 ### 使用 DevContainer 进行调试 （推荐）
@@ -89,56 +79,44 @@ code .
 - 配置开发环境
 - 安装项目依赖
 
-#### 5. 验证环境
-
-容器启动完成后，在终端中验证：
-
-```bash
-# 检查 Go 版本
-go version
-
-# 检查预装工具
-golangci-lint --version
-goimports --version
-gopls version
-
-# 检查项目依赖
-go mod tidy
-go mod verify
-```
-
-#### 6. 开始调试
-
-现在你可以在容器化的环境中进行开发：
-
-- **代码编辑** - 完整的 Go 语言支持
-- **智能提示** - gopls 语言服务器
-- **代码检查** - golangci-lint 实时检查
-- **格式化** - goimports 自动格式化
-- **调试** - 完整的调试支持
-
-#### 7. 常用调试命令
+#### 5. 常用调试命令
 
 ```bash
 # 构建项目
 make install
-
-# 运行测试
-go test ./...
-
-# 代码质量检查
-golangci-lint run
-
-# 格式化代码
-goimports -w .
 
 # 启动区块链进行调试
 make init
 minid start --log_level debug
 ```
 
-#### 8. 端口转发
+#### 6. 端口转发
 
+在 Cosmos 生态系统中，有三个重要的端口提供不同类型的接口服务：
+
+##### 端口功能对比
+
+- **26657** - RPC 端口（Tendermint RPC）
+  - **用途**：Tendermint 共识引擎的核心 RPC 接口
+  - **功能**：区块链状态查询、交易广播、网络连接管理、共识信息
+  - **特点**：底层接口，直接与区块链网络交互
+  - **适用场景**：开发调试、底层区块链操作
+
+- **1317** - API 端口（Cosmos SDK REST API）
+  - **用途**：提供用户友好的 RESTful API 接口
+  - **功能**：账户信息查询、余额查询、交易历史、治理提案、模块特定功能
+  - **特点**：高级抽象接口，适合前端应用和用户交互
+  - **适用场景**：前端应用、移动应用、用户交互
+
+- **9090** - gRPC 端口（Cosmos SDK gRPC）
+  - **用途**：高性能的 gRPC 接口
+  - **功能**：与 REST API 类似功能、流式数据查询、高性能数据传输
+  - **特点**：使用 Protocol Buffers，性能更好，适合程序间通信
+  - **适用场景**：后端服务、程序间集成、高性能需求
+
+##### 端口转发配置
+
+为了在本地开发环境中访问这些服务，需要配置端口转发：
 devcontainer 已配置以下端口转发：
 
 - **26656** - P2P 端口（节点间通信）
@@ -146,49 +124,9 @@ devcontainer 已配置以下端口转发：
 - **1317** - API 端口（Cosmos SDK REST API）
 - **9090** - gRPC 端口（Cosmos SDK gRPC）
 
-#### 9. 故障排除
-
-如果遇到问题：
-
-```bash
-# 重新构建容器
-Dev Containers: Rebuild Container
-
-# 清理 Docker 资源
-docker system prune -a
-
-# 检查容器状态
-docker ps
-docker logs <container-id>
-```
-
-#### 10. 开发工作流
-
-```bash
-# 1. 修改代码
-# 2. 保存文件（自动格式化）
-# 3. 运行测试
-go test ./...
-# 4. 代码检查
-golangci-lint run
-# 5. 构建项目
-make install
-# 6. 启动区块链测试
-make init
-minid start
-```
-
-使用 devcontainer 的优势：
-
-- ✅ **环境一致性** - 所有开发者使用相同环境
-- ✅ **工具预装** - 无需手动安装开发工具
-- ✅ **隔离性** - 不影响本地系统环境
-- ✅ **可重现** - 环境配置完全版本化
-- ✅ **快速启动** - 新开发者几分钟内即可开始开发
-
 ## 代码阅读顺序
 
-### 第一阶段：项目结构理解 (1-2 天）
+### 第一阶段：项目结构理解
 
 #### 1.1 整体架构概览
 
@@ -223,64 +161,6 @@ chain-minimal/
 └── README.md             # 项目说明
 ```
 
-**重点文件深度解析**：
-
-##### 1.1.1 `go.mod` - 依赖管理核心
-
-```go
-module github.com/cosmosregistry/chain-minimal
-
-go 1.23
-
-require (
-    cosmossdk.io/api v0.7.6                    // Cosmos SDK API 定义
-    cosmossdk.io/client/v2 v2.0.0-beta.6       // 客户端工具
-    cosmossdk.io/core v0.11.2                  // 核心接口
-    cosmossdk.io/depinject v1.1.0              // 依赖注入框架
-    cosmossdk.io/log v1.5.0                    // 日志系统
-    cosmossdk.io/math v1.5.0                   // 数学运算库
-    cosmossdk.io/store v1.1.1                  // 状态存储
-    github.com/cometbft/cometbft v0.38.17      // 共识引擎
-    github.com/cosmos/cosmos-sdk v0.50.13      // Cosmos SDK 主框架
-    github.com/spf13/cobra v1.9.1              // 命令行框架
-)
-```
-
-**关键依赖说明**：
-- **CometBFT**: 提供 BFT 共识算法和 P2P 网络
-- **Cosmos SDK**: 提供区块链应用框架
-- **DepInject**: 现代化的依赖注入系统
-- **Cobra**: 强大的命令行工具框架
-
-##### 1.1.2 `Makefile` - 构建系统
-
-```makefile
-# 版本信息动态获取
-BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
-COMMIT := $(shell git log -1 --format='%H')
-VERSION := $(shell git describe --exact-match 2>/dev/null)
-
-# 编译时注入版本信息
-ldflags = -X github.com/cosmos/cosmos-sdk/version.Name=mini \
-	-X github.com/cosmos/cosmos-sdk/version.AppName=minid \
-	-X github.com/cosmos/cosmos-sdk/version.Version=$(VERSION) \
-	-X github.com/cosmos/cosmos-sdk/version.Commit=$(COMMIT)
-
-# 安装二进制文件
-install:
-	@go mod verify                                    # 验证依赖完整性
-	@go install $(BUILD_FLAGS) -mod=readonly ./cmd/minid  # 编译安装
-
-# 初始化区块链
-init:
-	./scripts/init.sh
-```
-
-**学习要点**：
-- **版本管理**: 如何在编译时注入版本信息
-- **安全构建**: `go mod verify` 确保依赖未被篡改
-- **只读模式**: `-mod=readonly` 防止意外修改依赖
-
 #### 1.2 应用入口点分析
 
 **文件**: `cmd/minid/main.go`
@@ -302,9 +182,7 @@ import (
 
 func main() {
 	params.SetAddressPrefixes()  // 1. 设置地址前缀
-
 	rootCmd := cmd.NewRootCmd()  // 2. 创建根命令
-
 	// 3. 执行命令，传入环境前缀和默认主目录
 	if err := svrcmd.Execute(rootCmd, clienthelpers.EnvPrefix, app.DefaultNodeHome); err != nil {
 		fmt.Fprintln(rootCmd.OutOrStderr(), err)
