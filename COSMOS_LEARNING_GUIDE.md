@@ -165,171 +165,14 @@ chain-minimal/
 
 **文件**: `cmd/minid/main.go`
 
-```go
-package main
-
-import (
-	"fmt"
-	"os"
-
-	clienthelpers "cosmossdk.io/client/v2/helpers"
-	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
-
-	"github.com/cosmosregistry/chain-minimal/app"
-	"github.com/cosmosregistry/chain-minimal/app/params"
-	"github.com/cosmosregistry/chain-minimal/cmd/minid/cmd"
-)
-
-func main() {
-	params.SetAddressPrefixes()  // 1. 设置地址前缀
-	rootCmd := cmd.NewRootCmd()  // 2. 创建根命令
-	// 3. 执行命令，传入环境前缀和默认主目录
-	if err := svrcmd.Execute(rootCmd, clienthelpers.EnvPrefix, app.DefaultNodeHome); err != nil {
-		fmt.Fprintln(rootCmd.OutOrStderr(), err)
-		os.Exit(1)
-	}
-}
-```
-
-**启动流程详解**：
-
-1. **地址前缀设置** (`params.SetAddressPrefixes()`)
-   - 设置账户地址前缀为 "mini"
-   - 设置验证者地址前缀为 "minivaloper"
-   - 设置共识节点地址前缀为 "minivalcons"
-
-2. **根命令创建** (`cmd.NewRootCmd()`)
-   - 使用依赖注入初始化组件
-   - 配置客户端上下文
-   - 设置自动 CLI 选项
-
-3. **命令执行** (`svrcmd.Execute()`)
-   - 解析命令行参数
-   - 根据子命令执行相应逻辑
-   - 处理错误和退出码
-
 #### 1.3 根命令配置深入
 
-**文件**: `cmd/minid/cmd/root.go`
-
-**关键配置**：
-
-```go
-func NewRootCmd() *cobra.Command {
-    // 1. 依赖注入初始化
-    if err := depinject.Inject(
-        depinject.Configs(app.AppConfig(),
-            depinject.Supply(log.NewNopLogger()),
-            depinject.Provide(ProvideClientContext),
-        ),
-        &autoCliOpts,        // 自动 CLI 选项
-        &moduleBasicManager, // 模块基础管理器
-        &clientCtx,          // 客户端上下文
-    ); err != nil {
-        panic(err)
-    }
-
-    // 2. 创建根命令
-    rootCmd := &cobra.Command{
-        Use:   "minid",
-        Short: "minid - the minimal chain app",
-        PersistentPreRunE: func(cmd *cobra.Command, _ []string) error {
-            // 配置默认输出
-            cmd.SetOut(cmd.OutOrStdout())
-            cmd.SetErr(cmd.ErrOrStderr())
-
-            // 读取配置文件
-            clientCtx, err := config.ReadFromClientConfig(clientCtx)
-
-            // 设置服务器配置
-            srvCfg := serverconfig.DefaultConfig()
-            srvCfg.MinGasPrices = "0mini"  // 最小 gas 价格
-
-            // 设置共识配置
-            cmtCfg := cmtcfg.DefaultConfig()
-            cmtCfg.Consensus.TimeoutCommit = 3 * time.Second  // 出块时间
-            cmtCfg.LogLevel = "*:error,p2p:info,state:info"   // 日志级别
-
-            return server.InterceptConfigsPreRunHandler(cmd, serverconfig.DefaultConfigTemplate, srvCfg, cmtCfg)
-        },
-    }
-
-    return rootCmd
-}
-```
-
-**配置要点**：
-- **最小 Gas 价格**: 设置为 "0mini"，允许免费交易
-- **出块时间**: 3秒，比默认更快的出块
-- **日志级别**: 只显示错误和关键信息
-
 #### 1.4 参数配置系统
-
-**文件**: `app/params/config.go`
-
-```go
-const (
-    CoinUnit = "mini"                    // 基础代币单位
-    DefaultBondDenom = CoinUnit          // 质押代币
-    Bech32PrefixAccAddr = "mini"         // 账户地址前缀
-)
-
-var (
-    // 各种地址前缀定义
-    Bech32PrefixAccPub = "minipub"           // 账户公钥前缀
-    Bech32PrefixValAddr = "minivaloper"      // 验证者地址前缀
-    Bech32PrefixValPub = "minivaloperpub"    // 验证者公钥前缀
-    Bech32PrefixConsAddr = "minivalcons"     // 共识地址前缀
-    Bech32PrefixConsPub = "minivalconspub"   // 共识公钥前缀
-)
-
-func SetAddressPrefixes() {
-    config := sdk.GetConfig()
-    config.SetBech32PrefixForAccount(Bech32PrefixAccAddr, Bech32PrefixAccPub)
-    config.SetBech32PrefixForValidator(Bech32PrefixValAddr, Bech32PrefixValPub)
-    config.SetBech32PrefixForConsensusNode(Bech32PrefixConsAddr, Bech32PrefixConsPub)
-
-    // 地址验证规则
-    config.SetAddressVerifier(func(bytes []byte) error {
-        if len(bytes) == 0 {
-            return errors.Wrap(sdkerrors.ErrUnknownAddress, "addresses cannot be empty")
-        }
-        if len(bytes) > address.MaxAddrLen {
-            return errors.Wrapf(sdkerrors.ErrUnknownAddress, "address max length is %d, got %d", address.MaxAddrLen, len(bytes))
-        }
-        if len(bytes) != 20 && len(bytes) != 32 {
-            return errors.Wrapf(sdkerrors.ErrUnknownAddress, "address length must be 20 or 32 bytes, got %d", len(bytes))
-        }
-        return nil
-    })
-}
-```
-
-**地址系统说明**：
-- **Bech32 编码**: 人类可读的地址格式
-- **不同角色前缀**: 区分账户、验证者、共识节点
-- **地址验证**: 确保地址长度和格式正确
-
-**思考问题**：
-
-1. **为什么需要设置地址前缀？**
-   - 区分不同网络（mainnet, testnet）
-   - 防止地址在不同链间误用
-   - 提供更好的用户体验
-
-2. **命令行工具是如何组织的？**
-   - 使用 Cobra 框架构建层次化命令
-   - 通过依赖注入管理组件
-   - 支持自动生成 CLI 接口
-
-3. **应用是如何启动的？**
-   - 初始化配置和依赖
-   - 解析命令行参数
-   - 根据命令执行相应逻辑
 
 #### 1.5 实践练习
 
 **练习 1: 探索项目结构**
+
 ```bash
 # 查看完整目录结构
 find . -type f -name "*.go" | head -20
@@ -342,6 +185,7 @@ go mod graph | grep "github.com/cosmosregistry/chain-minimal"
 ```
 
 **练习 2: 构建和运行**
+
 ```bash
 # 验证依赖
 go mod verify
@@ -357,6 +201,7 @@ minid version
 ```
 
 **练习 3: 配置探索**
+
 ```bash
 # 查看默认配置
 minid config
@@ -390,6 +235,7 @@ if err := depinject.Inject(
 ```
 
 **优势**：
+
 - **解耦**: 组件间松耦合，易于测试
 - **配置化**: 通过配置文件管理依赖关系
 - **类型安全**: 编译时检查依赖关系
@@ -417,6 +263,7 @@ type MiniApp struct {
 ```
 
 **关键接口方法**：
+
 - `InitChain`: 初始化区块链状态
 - `BeginBlock`: 每个区块开始时调用
 - `DeliverTx`: 处理交易
@@ -432,19 +279,19 @@ type MiniApp struct {
 │                        用户层                                │
 ├─────────────────────────────────────────────────────────────┤
 │  minid CLI 工具                                             │
-│  ├── keys (密钥管理)                                        │
-│  ├── tx (交易操作)                                          │
-│  ├── query (查询操作)                                       │
-│  └── start (启动节点)                                       │
+│  ├── keys （密钥管理）                                        │
+│  ├── tx （交易操作）                                          │
+│  ├── query （查询操作）                                       │
+│  └── start （启动节点）                                       │
 ├─────────────────────────────────────────────────────────────┤
 │                      应用层 (MiniApp)                        │
 │  ├── 模块管理器 (Module Manager)                            │
-│  │   ├── auth (账户认证)                                    │
-│  │   ├── bank (代币转账)                                    │
-│  │   ├── staking (质押)                                     │
-│  │   ├── distribution (奖励分发)                            │
-│  │   └── consensus (共识参数)                               │
-│  ├── Keeper 层 (状态管理)                                   │
+│  │   ├── auth （账户认证）                                    │
+│  │   ├── bank （代币转账）                                    │
+│  │   ├── staking （质押）                                     │
+│  │   ├── distribution （奖励分发）                            │
+│  │   └── consensus （共识参数）                               │
+│  ├── Keeper 层 （状态管理）                                   │
 │  └── 编解码器 (Codec)                                       │
 ├─────────────────────────────────────────────────────────────┤
 │                      ABCI 接口                               │
@@ -466,6 +313,7 @@ type MiniApp struct {
 通过第一阶段的学习，你应该掌握：
 
 **✅ 已完成的学习目标**：
+
 - [x] 理解项目目录结构和文件组织
 - [x] 掌握 Go 模块依赖管理
 - [x] 了解应用启动流程和命令行工具
@@ -473,6 +321,7 @@ type MiniApp struct {
 - [x] 掌握依赖注入和 ABCI 基本概念
 
 **🔍 关键收获**：
+
 1. **模块化设计**: Cosmos SDK 采用模块化架构，每个功能都是独立模块
 2. **依赖注入**: 现代化的依赖管理，提高代码可测试性
 3. **配置驱动**: 通过 YAML 配置文件管理模块和执行顺序
@@ -480,6 +329,7 @@ type MiniApp struct {
 5. **命令行工具**: 使用 Cobra 框架构建强大的 CLI 工具
 
 **🎯 下一步学习**：
+
 - 深入理解应用配置 (app.yaml)
 - 学习模块系统和 Keeper 模式
 - 掌握状态管理和存储机制
